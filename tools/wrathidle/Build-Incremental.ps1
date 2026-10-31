@@ -1,23 +1,61 @@
 [CmdletBinding()]
-param([string]$Target = 'worldserver')
+param(
+    [ValidateSet('Server', 'Client')][string]$Project = 'Server',
+    [string]$Target = ''
+)
 $ErrorActionPreference = 'Stop'
 $server = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $workspace = Split-Path $server
 $cmake = Join-Path $workspace '.tools/cmake-4.4.4-windows-x86_64/bin/cmake.exe'
 $limits = Join-Path $PSScriptRoot 'LowResourceBuild.targets'
-if (Get-Process -Name MSBuild,cl,cmake -ErrorAction SilentlyContinue) {
-    throw 'Another build is running. Wait for it to finish before starting this build.'
-}
-$free = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory
-if ($free -lt 6GB / 1KB) { throw 'Less than 6 GB of memory is available. Build postponed.' }
-$process = Get-Process -Id $PID
-$priority = $process.PriorityClass
+$buildDirectory = Join-Path $server 'build'
+if ($Project -eq 'Client') { $buildDirectory = Join-Path $workspace 'Wrath-Idle-Client/build/x64' }
+if (!$Target) { $Target = if ($Project -eq 'Client') { 'WowClient' } else { 'worldserver' } }
+if ($Target -notmatch '^[A-Za-z0-9_-]+$') { throw 'Invalid build target.' }
+if (!(Test-Path -LiteralPath $limits)) { throw 'Resource-limit targets file is missing.' }
+$lock = $null
+$build = $null
+$parentProcess = Get-Process -Id $PID
+$previousPriority = $parentProcess.PriorityClass
 try {
-    $process.PriorityClass = 'BelowNormal'
-    & $cmake --build (Join-Path $server 'build') --config Release --target $Target --parallel 1 -- `
-        /m:1 /p:BuildInParallel=false /p:CL_MPCount=1 /p:UseMultiToolTask=false `
-        "/p:ForceImportBeforeCppTargets=$limits"
-    if ($LASTEXITCODE -ne 0) { throw "Incremental build failed ($LASTEXITCODE)." }
+    $lock = [IO.File]::Open((Join-Path $workspace '.tools/build.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+    if (Get-Process -Name MSBuild, cl, cmake, link -ErrorAction SilentlyContinue) {
+        throw 'Another build process exists. Wait for it to finish.'
+    }
+    if ((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory -lt 8GB / 1KB) {
+        throw 'Less than 8 GiB of physical memory is available. Build postponed.'
+    }
+    $parentProcess.PriorityClass = 'BelowNormal'
+    $log = Join-Path $workspace ".tools/$($Project.ToLower())-bounded-build.log"
+    $errorLog = Join-Path $workspace ".tools/$($Project.ToLower())-bounded-build.error.log"
+    $arguments = @('--build', "`"$buildDirectory`"", '--config', 'Release', '--target', $Target,
+        '--parallel', '1', '--', '/m:1', '/nr:false', '/p:BuildInParallel=false',
+        '/p:CL_MPCount=1', '/p:UseMultiToolTask=false', "`"/p:ForceImportBeforeCppTargets=$limits`"")
+    if ($Project -eq 'Server') {
+        $stage = Join-Path $workspace '.tools/gameplay-stage'
+        New-Item -ItemType Directory -Path $stage -Force | Out-Null
+        $arguments += "`"/p:WrathIdleStagedExecutable=$stage/worldserver.exe`""
+    }
+    $build = Start-Process -FilePath $cmake -ArgumentList $arguments -PassThru -WindowStyle Hidden `
+        -RedirectStandardOutput $log -RedirectStandardError $errorLog
+    $build.PriorityClass = 'BelowNormal'
+    while (!$build.WaitForExit(1000)) {
+        if ((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory -lt 4GB / 1KB) {
+            $build.Kill($true)
+            $build.WaitForExit()
+            throw 'Build stopped because available physical memory fell below 4 GiB.'
+        }
+        if (@(Get-Process -Name cl -ErrorAction SilentlyContinue).Count -gt 1) {
+            $build.Kill($true)
+            $build.WaitForExit()
+            throw 'Build stopped because more than one compiler worker was detected.'
+        }
+    }
+    $build.WaitForExit()
+    if ($build.ExitCode -ne 0) { throw "Build failed ($($build.ExitCode)). Read $log and $errorLog." }
+    Write-Host "Build complete. Output saved to $log"
 } finally {
-    $process.PriorityClass = $priority
+    if ($build -and !$build.HasExited) { $build.Kill($true); $build.WaitForExit() }
+    if ($lock) { $lock.Dispose() }
+    $parentProcess.PriorityClass = $previousPriority
 }

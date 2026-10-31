@@ -4,7 +4,7 @@
     <UseMultiToolTask>false</UseMultiToolTask>
     <CL_MPCount>1</CL_MPCount>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(WrathIdleStagedExecutable)' != ''">
+  <ItemDefinitionGroup Condition="'$(WrathIdleStagedExecutable)' != '' and '$(TargetName)' == 'worldserver'">
     <Link>
       <OutputFile>$(WrathIdleStagedExecutable)</OutputFile>
       <GenerateMapFile>true</GenerateMapFile>

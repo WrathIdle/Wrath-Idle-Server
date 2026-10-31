@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Workspace = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path,
-    [string]$ClientDirectory = $env:WRATHIDLE_ASSET_CLIENT,
+    [string]$ClientDirectory = '',
     [switch]$ServerOnly,
     [switch]$CheckOnly
 )
@@ -11,7 +11,8 @@ $mysqlDirectory = Join-Path $workspacePath '.tools/mysql-8.4.13-winx64'
 $serverDirectory = Join-Path $workspacePath 'Wrath-Idle-Server/build/bin/Release'
 $configDirectory = Join-Path $workspacePath 'runtime/server/etc'
 $logDirectory = Join-Path $workspacePath 'runtime/logs'
-$clientExecutable = Join-Path $ClientDirectory 'Wow.exe'
+if (!$ClientDirectory) { $ClientDirectory = Join-Path $workspacePath 'Wrath-Idle-Client/bin/Win' }
+$clientExecutable = Join-Path $ClientDirectory 'WowClient64.exe'
 $required = @(
     "$mysqlDirectory/bin/mysqld.exe",
     "$serverDirectory/authserver.exe",
@@ -26,7 +27,7 @@ $required = @(
     "$workspacePath/runtime/mysql-data/mysql",
     "$workspacePath/runtime/server/ac-data-v20/mmaps",
     $clientExecutable,
-    "$ClientDirectory/Data/enUS/patch-enUS-W.MPQ"
+    "$ClientDirectory/Data"
 )
 foreach ($path in $required) {
     if (!(Test-Path -LiteralPath $path)) { throw "Missing playtest prerequisite: $path" }
@@ -85,8 +86,8 @@ Start-ServiceIfNeeded 'database' "$mysqlDirectory/bin/mysqld.exe" $workspacePath
 Start-ServiceIfNeeded 'login' "$serverDirectory/authserver.exe" $configDirectory @('-c','authserver.conf') 3724
 Start-ServiceIfNeeded 'world' "$serverDirectory/worldserver.exe" $configDirectory @('-c','worldserver.conf') 8086
 if ($ServerOnly) { Write-Host 'Local WrathIdle servers are ready.'; return }
-Write-Host 'Opening the original Wrath client. Log in and select your character; the WrathIdle command center opens in game.'
+Write-Host 'Opening the WrathIdle client. Log in and select your character; the WrathIdle command center opens in game.'
 Write-Host 'The local servers keep running when you close the client.'
-$existingClient = Get-Process -Name Wow -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $clientExecutable }
-if ($existingClient) { Write-Host 'The original client is already running.'; return }
+$existingClient = Get-Process -Name WowClient64 -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $clientExecutable }
+if ($existingClient) { Write-Host 'The WrathIdle client is already running.'; return }
 Start-Process -FilePath $clientExecutable -WorkingDirectory $ClientDirectory -WindowStyle Hidden

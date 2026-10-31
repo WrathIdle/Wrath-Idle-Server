@@ -8,12 +8,11 @@
 #include <string_view>
 #include <vector>
 
-// WRI2 wire protocol with versioned saved profiles. The native interface mirrors the wire fields.
+// Versioned saved profiles, independent of the native packet envelope.
 namespace WrathIdle
 {
 constexpr uint32_t Version = 2;
 constexpr uint32_t ProfileSchema = 3;
-constexpr std::string_view Prefix = "WRI2\t";
 constexpr size_t MaxGoals = 8;
 constexpr size_t MaxRules = 8;
 constexpr size_t MaxProtected = 32;

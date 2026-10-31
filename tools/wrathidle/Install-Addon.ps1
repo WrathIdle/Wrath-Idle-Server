@@ -1,9 +1,3 @@
-# Compatibility entrypoint. WrathIdle now installs native FrameXML from an MPQ.
 [CmdletBinding()]
-param(
-    [string]$ClientDirectory = $env:WRATHIDLE_ASSET_CLIENT,
-    [switch]$ConfigureLocalRealm
-)
-$ErrorActionPreference = 'Stop'
-& (Join-Path $PSScriptRoot 'Install-NativeUI.ps1') -ClientDirectory $ClientDirectory `
-    -ConfigureLocalRealm:$ConfigureLocalRealm
+param()
+throw 'The WrathIdle UI is embedded in WowClient64.exe. Build the matching client and use Install-Gameplay.ps1.'

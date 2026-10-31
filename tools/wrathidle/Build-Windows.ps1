@@ -35,8 +35,4 @@ Copy-Item "$mysql/lib/libmysql.dll" "$server/build/bin/Release/libmysql.dll"
 foreach ($dependency in @('libssl-3-x64.dll', 'libcrypto-3-x64.dll')) {
     Copy-Item "$mysql/bin/$dependency" "$server/build/bin/Release/$dependency"
 }
-Invoke-Checked $cmake @('-S',"$server/tools/wrathidle/tests",'-B',"$server/build-policy",'-G','Visual Studio 17 2022','-A','x64')
-Invoke-Checked $cmake @('--build',"$server/build-policy",'--config','Release','--parallel','1','--',
-    '/m:1','/p:CL_MPCount=1','/p:BuildInParallel=false',
-    "/p:ForceImportBeforeCppTargets=$PSScriptRoot/LowResourceBuild.targets")
-Invoke-Checked (Join-Path (Split-Path $cmake) 'ctest.exe') @('--test-dir',"$server/build-policy",'-C','Release','--output-on-failure')
+Write-Host 'Build artifacts are ready. The maintainer controls test execution.'

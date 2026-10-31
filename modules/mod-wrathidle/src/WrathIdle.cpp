@@ -10,7 +10,7 @@
 #include "DetourExtended.h"
 #include "PlayerbotsExecutor.h"
 #include "Bag.h"
-#include "Chat.h"
+#include "IdleWire.h"
 #include "CellImpl.h"
 #include "Config.h"
 #include "Corpse.h"
@@ -61,6 +61,8 @@ struct Runtime : DataMap::Base
 {
     Model model;
     EventMap events;
+    uint32 requestId = 0;
+    uint32 lastRequestId = 0;
     bool ready = false;
     bool running = false;
     bool recovering = false;
@@ -140,13 +142,31 @@ void RecordMoney(Player* player, Runtime& state)
     state.previousMoney = money;
 }
 
-void Send(Player* player, std::string const& text)
+void Send(Player* player, std::string_view kind, std::vector<uint32> const& values = {},
+    std::vector<std::string> const& strings = {})
 {
     if (player->GetSession()->IsSocketClosed())
         return;
-    WorldPacket packet;
-    ChatHandler::BuildChatPacket(packet, CHAT_MSG_WHISPER, LANG_ADDON, player, player,
-        std::string(Prefix) + text.substr(0, 249));
+    uint16 type = 0;
+    for (uint16 i = 1; i < std::size(WrathIdleWire::Updates); ++i)
+        if (kind == WrathIdleWire::Updates[i])
+            type = i;
+    if (!type || values.size() != WrathIdleWire::ValueCounts[type] ||
+        strings.size() != WrathIdleWire::StringCounts[type])
+        return;
+    Runtime* state = State(player);
+    WorldPacket packet(SMSG_WRATHIDLE_UPDATE);
+    packet << uint16(WrathIdleWire::Version) << type << uint32(state ? state->requestId : 0);
+    packet << uint16(values.size());
+    for (uint32 value : values)
+        packet << value;
+    packet << uint8(strings.size());
+    for (auto const& text : strings)
+    {
+        std::string bounded = text.substr(0, WrathIdleWire::MaxString);
+        packet << uint16(bounded.size());
+        packet.append(bounded.data(), bounded.size());
+    }
     player->SendDirectMessage(&packet);
 }
 
@@ -158,7 +178,7 @@ void Explain(Player* player, Runtime& state, std::string action, std::string rea
     state.reason = std::move(reason);
     LOG_INFO("module.wrathidle", "{}: {} - {}", player->GetName(), state.action, state.reason);
     if (state.ready)
-        Send(player, "event " + state.action + ": " + state.reason);
+        Send(player, "event", {}, {state.action + ": " + state.reason});
 }
 
 void Stop(Player* player, Runtime& state, std::string const& reason)
@@ -225,39 +245,37 @@ uint32 Durability(Player* player)
 void Status(Player* player, Runtime const& state)
 {
     if (auto preset = PresetForClass(player->getClass()))
-        Send(player, "classstate " + std::to_string(player->getClass()) + "|" +
-            std::string(preset->name) + "|" + state.classDecision);
-    Send(player, "status " + std::to_string(state.model.revision) + " " +
-        std::to_string(state.running) + " " + state.action + "|" + state.reason);
-    Send(player, "stats " + Join({state.seconds, static_cast<uint32>(state.xp),
+        Send(player, "classstate", {player->getClass()}, {std::string(preset->name), state.classDecision});
+    Send(player, "status", {state.model.revision, state.running}, {state.action, state.reason});
+    Send(player, "stats", {state.seconds, static_cast<uint32>(state.xp),
         static_cast<uint32>(state.earned), static_cast<uint32>(state.paid), state.deathCount,
         state.lootCount, state.travelSeconds, state.serviceSeconds, FreeSlots(player), Durability(player),
         player->GetMoney(), player->GetItemCount(CarriedFoodEntry(player, state.model.profile)), player->GetLevel(),
         state.model.goals.empty() ? 0 : (state.model.goals.front().kind == 0 ? player->GetLevel() :
             player->GetItemCount(state.model.goals.front().target)),
-        state.model.goals.empty() ? 0 : state.model.goals.front().elapsedSeconds}));
+        state.model.goals.empty() ? 0 : state.model.goals.front().elapsedSeconds});
 }
 
 void Snapshot(Player* player, Runtime const& state)
 {
-    Send(player, "begin " + std::to_string(state.model.revision));
+    Send(player, "begin", {state.model.revision});
     auto const& values = state.model.profile.values;
-    Send(player, "profile " + Join(std::vector<uint32_t>(values.begin(), values.end())));
+    Send(player, "profile", std::vector<uint32_t>(values.begin(), values.end()));
     for (uint32 i = 0; i < MaxRules; ++i)
     {
         auto const& r = state.model.profile.rules[i];
-        Send(player, "rule " + Join({i, r.spell, r.minPower, r.maxHealth, r.self, r.missingAura}));
+        Send(player, "rule", {i, r.spell, r.minPower, r.maxHealth, r.self, r.missingAura});
     }
     for (uint32 id : state.model.profile.protectedItems)
-        Send(player, "keep " + std::to_string(id));
+        Send(player, "keep", {id});
     for (auto const& g : state.model.goals)
-        Send(player, "goal " + Join({g.kind, g.target, g.count, g.area, g.limitSeconds, g.elapsedSeconds, g.id}));
+        Send(player, "goal", {g.kind, g.target, g.count, g.area, g.limitSeconds, g.elapsedSeconds, g.id});
     for (uint32 id : state.model.profile.avoidedQuests)
-        Send(player, "avoid " + std::to_string(id));
-    Send(player, "policy " + Join({state.model.profile.autoEquip, state.model.profile.autoTrain,
-        state.model.profile.equipBoe, state.model.profile.lockedSlots}));
-    Send(player, "classpolicy " + Join({state.model.profile.autoTalents, state.model.profile.classPreset}));
-    Send(player, "end " + std::to_string(state.model.revision));
+        Send(player, "avoid", {id});
+    Send(player, "policy", {state.model.profile.autoEquip, state.model.profile.autoTrain,
+        state.model.profile.equipBoe, state.model.profile.lockedSlots});
+    Send(player, "classpolicy", {state.model.profile.autoTalents, state.model.profile.classPreset});
+    Send(player, "end", {state.model.revision});
     Status(player, state);
 }
 
@@ -1283,27 +1301,19 @@ void Think(Player* player, Runtime& state)
     Search(player, state);
 }
 
-void Command(Player* player, Runtime& state, std::string const& message)
+void Command(Player* player, Runtime& state, std::string const& verb, std::vector<uint32> const& args)
 {
-    size_t split = message.find(' ');
-    std::string verb = message.substr(0, split);
-    std::vector<uint32_t> args;
-    if (!Numbers(split == std::string::npos ? "" : std::string_view(message).substr(split + 1), args))
-    {
-        Send(player, "error Invalid numeric arguments.");
-        return;
-    }
     if (verb == "hello")
     {
         state.ready = args.size() == 1 && args[0] == Version && state.loaded;
         if (!state.ready)
         {
             Stop(player, state, "Protocol negotiation failed. Automation remains paused.");
-            Send(player, "error Unsupported protocol or saved profile. Automation remains paused.");
+            Send(player, "error", {}, {"Unsupported protocol or saved profile. Automation remains paused."});
             return;
         }
-        Send(player, "hello " + std::to_string(Version));
-        Send(player, "capabilities 2 1 1 1 0");
+        Send(player, "hello", {Version});
+        Send(player, "capabilities", {2,1,1,1,0});
         Snapshot(player, state);
         return;
     }
@@ -1321,17 +1331,16 @@ void Command(Player* player, Runtime& state, std::string const& message)
         size_t pages = std::max(size_t(1), (catalog.size() + PageSize - 1) / PageSize);
         if (args[0] >= pages)
         {
-            Send(player, "error Destination page is no longer available. Refresh the list.");
+            Send(player, "error", {}, {"Destination page is no longer available. Refresh the list."});
             return;
         }
-        Send(player, "travel begin " + Join({state.model.revision, args[0], uint32(pages)}));
+        Send(player, "travel_begin", {state.model.revision, args[0], uint32(pages)});
         for (size_t i = args[0] * PageSize; i < std::min(catalog.size(), (args[0] + 1) * PageSize); ++i)
         {
             auto name = catalog[i].name;
-            std::replace(name.begin(), name.end(), '|', ' ');
-            Send(player, "travel destination " + std::to_string(catalog[i].id) + "|" + name);
+            Send(player, "travel_item", {catalog[i].id}, {name});
         }
-        Send(player, "travel end " + Join({state.model.revision, args[0]}));
+        Send(player, "travel_end", {state.model.revision, args[0]});
         return;
     }
     if (verb == "upgrades" && args.size() == 1)
@@ -1345,21 +1354,20 @@ void Command(Player* player, Runtime& state, std::string const& message)
         size_t pages = std::max(size_t(1), (items.size() + PageSize - 1) / PageSize);
         if (args[0] >= pages)
         {
-            Send(player, "error Upgrade page is no longer available. Refresh the list.");
+            Send(player, "error", {}, {"Upgrade page is no longer available. Refresh the list."});
             return;
         }
-        Send(player, "upgrade begin " + Join({state.model.revision, args[0], uint32(pages)}));
+        Send(player, "upgrade_begin", {state.model.revision, args[0], uint32(pages)});
         for (size_t i = args[0] * PageSize; i < std::min(items.size(), (args[0] + 1) * PageSize); ++i)
         {
             Item* item = items[i];
             auto proto = item->GetTemplate();
             std::string name = proto->Name1;
-            std::replace(name.begin(), name.end(), '|', ' ');
             // Item GUID low parts identify this session's owned inventory objects, never another player's items.
-            Send(player, "upgrade item " + Join({item->GetGUID().GetCounter(), item->GetEntry(),
-                uint32(proto->Bonding == BIND_WHEN_EQUIPPED && !item->IsSoulBound())}) + "|" + name);
+            Send(player, "upgrade_item", {item->GetGUID().GetCounter(), item->GetEntry(),
+                uint32(proto->Bonding == BIND_WHEN_EQUIPPED && !item->IsSoulBound())}, {name});
         }
-        Send(player, "upgrade end " + Join({state.model.revision, args[0]}));
+        Send(player, "upgrade_end", {state.model.revision, args[0]});
         return;
     }
     if (verb == "quests" && args.size() == 1)
@@ -1369,23 +1377,22 @@ void Command(Player* player, Runtime& state, std::string const& message)
         size_t pages = std::max(size_t(1), (catalog.size() + PageSize - 1) / PageSize);
         if (args[0] >= pages)
         {
-            Send(player, "error Quest page is no longer available. Refresh the list.");
+            Send(player, "error", {}, {"Quest page is no longer available. Refresh the list."});
             return;
         }
-        Send(player, "catalog begin " + Join({state.model.revision, args[0], uint32(pages)}));
+        Send(player, "catalog_begin", {state.model.revision, args[0], uint32(pages)});
         for (size_t i = args[0] * PageSize; i < std::min(catalog.size(), (args[0] + 1) * PageSize); ++i)
         {
             auto const& quest = catalog[i];
             std::string title = quest.title;
-            std::replace(title.begin(), title.end(), '|', ' ');
-            Send(player, "catalog quest " + Join({quest.id, quest.status, uint32(quest.supported)}) + "|" + title);
+            Send(player, "catalog_item", {quest.id, quest.status, uint32(quest.supported)}, {title});
         }
-        Send(player, "catalog end " + Join({state.model.revision, args[0]}));
+        Send(player, "catalog_end", {state.model.revision, args[0]});
         return;
     }
     if (args.empty() || args[0] != state.model.revision)
     {
-        Send(player, "error Settings changed. Review the refreshed profile and retry.");
+        Send(player, "error", {}, {"Settings changed. Review the refreshed profile and retry."});
         Snapshot(player, state);
         return;
     }
@@ -1404,7 +1411,7 @@ void Command(Player* player, Runtime& state, std::string const& message)
         {
             if (!PlayerbotsExecutor::Attach(player))
             {
-                Send(player, "error Playerbots is unavailable or another AI controls this character.");
+                Send(player, "error", {}, {"Playerbots is unavailable or another AI controls this character."});
                 return;
             }
             state.running = true;
@@ -1521,7 +1528,7 @@ void Command(Player* player, Runtime& state, std::string const& message)
         valid = false;
     if (!valid || !Valid(candidate.profile))
     {
-        Send(player, "error Invalid request or unsupported pilot capability.");
+        Send(player, "error", {}, {"Invalid request or unsupported pilot capability."});
         return;
     }
     candidate.revision++;
@@ -1529,7 +1536,7 @@ void Command(Player* player, Runtime& state, std::string const& message)
     if (verb == "add" && !state.running)
         Explain(player, state, "Paused", "Goal queued. Start or resume when ready.");
     Store(player, state, true);
-    Send(player, "ack " + std::to_string(state.model.revision));
+    Send(player, "ack", {state.model.revision});
     Snapshot(player, state);
 }
 }
@@ -1715,26 +1722,46 @@ public:
         Runtime* state = State(player);
         if (!state)
             return true;
-        if (packet.GetOpcode() == CMSG_MESSAGECHAT)
+        if (packet.GetOpcode() == CMSG_WRATHIDLE_COMMAND)
         {
+            if (++state->commandCount > 8 || packet.size() < 14)
+                return false;
             WorldPacket copy(packet);
-            uint32 type, language;
-            copy >> type >> language;
-            if (type != CHAT_MSG_WHISPER || language != LANG_ADDON)
-                return true;
-            std::string receiver, text;
-            copy >> receiver >> text;
-            if (text.rfind(Prefix, 0) != 0)
-                return true;
-            // Never forward control traffic or trust a target GUID supplied by the client.
-            if (receiver == player->GetName() && text.size() <= 255 && ++state->commandCount <= 8)
-                Command(player, *state, text.substr(Prefix.size()));
+            uint16 version, operation, count;
+            uint32 request, revision;
+            copy >> version >> operation >> request >> revision >> count;
+            if (count > WrathIdleWire::MaxValues || copy.size() - copy.rpos() != size_t(count) * 4 ||
+                !request || request <= state->lastRequestId ||
+                !operation || operation >= std::size(WrathIdleWire::Commands))
+                return false;
+            state->lastRequestId = request;
+            state->requestId = request;
+            if (version != WrathIdleWire::Version)
+            {
+                state->ready = false;
+                Stop(player, *state, "Incompatible native game protocol.");
+                Send(player, "error", {}, {"Incompatible native game protocol."});
+                state->requestId = 0;
+                return false;
+            }
+            std::string verb = WrathIdleWire::Commands[operation];
+            std::vector<uint32> args;
+            if (operation > 5)
+                args.push_back(revision);
+            for (uint16 i = 0; i < count; ++i)
+            {
+                uint32 value;
+                copy >> value;
+                args.push_back(value);
+            }
+            Command(player, *state, verb, args);
+            state->requestId = 0;
             return false;
         }
         std::string name = opcodeTable[static_cast<OpcodeClient>(packet.GetOpcode())]->Name;
         // Management-only sessions allow observation, social chat, and connection bookkeeping.
         // Gameplay mutations are executed locally by the activity controllers above.
-        return name.find("QUERY") != std::string::npos ||
+        return packet.GetOpcode() == CMSG_MESSAGECHAT || name.find("QUERY") != std::string::npos ||
             packet.GetOpcode() == MSG_MOVE_WORLDPORT_ACK || packet.GetOpcode() == MSG_MOVE_TELEPORT_ACK ||
             packet.GetOpcode() == CMSG_LOGOUT_REQUEST || packet.GetOpcode() == CMSG_LOGOUT_CANCEL ||
             packet.GetOpcode() == CMSG_PING || packet.GetOpcode() == CMSG_KEEP_ALIVE ||
