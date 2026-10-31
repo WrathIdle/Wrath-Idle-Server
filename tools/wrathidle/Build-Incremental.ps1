@@ -17,6 +17,7 @@ $lock = $null
 $build = $null
 $parentProcess = Get-Process -Id $PID
 $previousPriority = $parentProcess.PriorityClass
+$previousAffinity = $parentProcess.ProcessorAffinity
 try {
     $lock = [IO.File]::Open((Join-Path $workspace '.tools/build.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     if (Get-Process -Name MSBuild, cl, cmake, link -ErrorAction SilentlyContinue) {
@@ -25,12 +26,21 @@ try {
     if ((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory -lt 8GB / 1KB) {
         throw 'Less than 8 GiB of physical memory is available. Build postponed.'
     }
+    $logicalProcessors = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+    $processorLimit = [math]::Max(1, [math]::Min(63, [math]::Floor($logicalProcessors / 2)))
+    $freeGiB = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB
+    $memoryWorkers = [math]::Max(1, [math]::Floor(($freeGiB - 6) / 2))
+    $workers = [int][math]::Min($processorLimit, $memoryWorkers)
+    # Child processes inherit this affinity, including compiler and linker threads.
+    $parentProcess.ProcessorAffinity = [IntPtr]([long][math]::Pow(2, $processorLimit) - 1)
     $parentProcess.PriorityClass = 'BelowNormal'
+    Write-Host "Building $Project with $workers compiler workers on at most $processorLimit logical processors."
+
     $log = Join-Path $workspace ".tools/$($Project.ToLower())-bounded-build.log"
     $errorLog = Join-Path $workspace ".tools/$($Project.ToLower())-bounded-build.error.log"
     $arguments = @('--build', "`"$buildDirectory`"", '--config', 'Release', '--target', $Target,
         '--parallel', '1', '--', '/m:1', '/nr:false', '/p:BuildInParallel=false',
-        '/p:CL_MPCount=1', '/p:UseMultiToolTask=false', "`"/p:ForceImportBeforeCppTargets=$limits`"")
+        "/p:CL_MPCount=$workers", '/p:UseMultiToolTask=false', "`"/p:ForceImportBeforeCppTargets=$limits`"")
     if ($Project -eq 'Server') {
         $stage = Join-Path $workspace '.tools/gameplay-stage'
         New-Item -ItemType Directory -Path $stage -Force | Out-Null
@@ -45,10 +55,10 @@ try {
             $build.WaitForExit()
             throw 'Build stopped because available physical memory fell below 4 GiB.'
         }
-        if (@(Get-Process -Name cl -ErrorAction SilentlyContinue).Count -gt 1) {
+        if (@(Get-Process -Name cl -ErrorAction SilentlyContinue).Count -gt ($workers + 1)) {
             $build.Kill($true)
             $build.WaitForExit()
-            throw 'Build stopped because more than one compiler worker was detected.'
+            throw 'Build stopped because the configured compiler worker limit was exceeded.'
         }
     }
     $build.WaitForExit()
@@ -58,4 +68,5 @@ try {
     if ($build -and !$build.HasExited) { $build.Kill($true); $build.WaitForExit() }
     if ($lock) { $lock.Dispose() }
     $parentProcess.PriorityClass = $previousPriority
+    $parentProcess.ProcessorAffinity = $previousAffinity
 }

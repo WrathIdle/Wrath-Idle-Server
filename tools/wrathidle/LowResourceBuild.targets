@@ -2,7 +2,7 @@
   <PropertyGroup>
     <BuildInParallel>false</BuildInParallel>
     <UseMultiToolTask>false</UseMultiToolTask>
-    <CL_MPCount>1</CL_MPCount>
+    <CL_MPCount Condition="'$(CL_MPCount)' == ''">1</CL_MPCount>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(WrathIdleStagedExecutable)' != '' and '$(TargetName)' == 'worldserver'">
     <Link>
@@ -16,8 +16,9 @@
   <Target Name="WrathIdleLimitCompilerWorkers" BeforeTargets="SelectClCompile;ClCompile">
     <ItemGroup>
       <ClCompile>
-        <MultiProcessorCompilation>false</MultiProcessorCompilation>
-        <ProcessorNumber>1</ProcessorNumber>
+        <MultiProcessorCompilation Condition="'$(CL_MPCount)' &gt; '1'">true</MultiProcessorCompilation>
+        <MultiProcessorCompilation Condition="'$(CL_MPCount)' == '1'">false</MultiProcessorCompilation>
+        <ProcessorNumber>$(CL_MPCount)</ProcessorNumber>
       </ClCompile>
     </ItemGroup>
   </Target>

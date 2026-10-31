@@ -65,10 +65,11 @@ so the outer parallel-job setting did not bound the number of compiler workers.
 The maintainer reported a complete computer lockup requiring a restart during those builds.
 
 - Never build the client and server concurrently. Run one build at a time across this workspace.
-- Use one MSBuild worker and one compiler worker. Set CMake parallelism to 1, MSBuild /m:1,
-  BuildInParallel=false, CL_MPCount=1, and UseMultiToolTask=false. Explicitly disable
-  MultiProcessorCompilation through the existing tools/wrathidle/LowResourceBuild.targets
-  in the server repository. Apply these limits to client builds as well.
+- Use at most half the logical processors for compilation. Keep one MSBuild project worker
+  and bound compiler workers explicitly. Limit the build process tree's processor affinity
+  to at most half the logical processors, and lower the worker count when memory requires it.
+  Use the monitored tools/wrathidle/Build-Incremental.ps1 in the server repository for either
+  project. Import its LowResourceBuild.targets and prohibit unbounded /MP compilation.
 - Never invoke a direct build command that bypasses those limits. The server's
   tools/wrathidle/Build-Incremental.ps1 is the starting point for bounded server builds.
   Verify that the resource-limit targets file is imported before starting compilation.
