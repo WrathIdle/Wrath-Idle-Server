@@ -41,10 +41,12 @@ try {
     $arguments = @('--build', "`"$buildDirectory`"", '--config', 'Release', '--target', $Target,
         '--parallel', '1', '--', '/m:1', '/nr:false', '/p:BuildInParallel=false',
         "/p:CL_MPCount=$workers", '/p:UseMultiToolTask=false', "`"/p:ForceImportBeforeCppTargets=$limits`"")
+    $stage = Join-Path $workspace '.tools/gameplay-stage'
+    New-Item -ItemType Directory -Path $stage -Force | Out-Null
     if ($Project -eq 'Server') {
-        $stage = Join-Path $workspace '.tools/gameplay-stage'
-        New-Item -ItemType Directory -Path $stage -Force | Out-Null
         $arguments += "`"/p:WrathIdleStagedExecutable=$stage/worldserver.exe`""
+    } else {
+        $arguments += "`"/p:WrathIdleStagedClient=$stage/WowClient64.exe`""
     }
     $build = Start-Process -FilePath $cmake -ArgumentList $arguments -PassThru -WindowStyle Hidden `
         -RedirectStandardOutput $log -RedirectStandardError $errorLog

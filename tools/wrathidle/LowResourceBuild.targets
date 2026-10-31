@@ -11,6 +11,11 @@
       <MapFileName>$(WrathIdleStagedExecutable).map</MapFileName>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(WrathIdleStagedClient)' != '' and '$(TargetName)' == 'WowClient64'">
+    <Link>
+      <OutputFile>$(WrathIdleStagedClient)</OutputFile>
+    </Link>
+  </ItemDefinitionGroup>
   <Target Name="WrathIdleArchive" DependsOnTargets="PrepareForBuild;ResolveReferences;_Lib" />
   <Target Name="WrathIdleLink" DependsOnTargets="_BuildLinkAction" />
   <Target Name="WrathIdleLimitCompilerWorkers" BeforeTargets="SelectClCompile;ClCompile">

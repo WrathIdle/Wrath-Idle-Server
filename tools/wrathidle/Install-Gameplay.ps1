@@ -1,13 +1,14 @@
 [CmdletBinding()]
-param()
+param([string]$PreviousClient = '')
 $ErrorActionPreference = 'Stop'
 $server = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $workspace = Split-Path $server
 $clientDirectory = Join-Path $workspace 'Wrath-Idle-Client/bin/Win'
 $installed = Join-Path $server 'build/bin/Release/worldserver.exe'
 $clientExe = Join-Path $clientDirectory 'WowClient64.exe'
+$stagedClient = Join-Path $workspace '.tools/gameplay-stage/WowClient64.exe'
 $staged = Join-Path $workspace '.tools/gameplay-stage/worldserver.exe'
-foreach ($path in @($clientExe, $staged, "$clientDirectory/Data")) {
+foreach ($path in @($clientExe, $stagedClient, $staged, "$clientDirectory/Data")) {
     if (!(Test-Path -LiteralPath $path)) { throw "Missing deployment prerequisite: $path" }
 }
 if (Get-Process -Name cmake, MSBuild, cl, link -ErrorAction SilentlyContinue) {
@@ -16,10 +17,8 @@ if (Get-Process -Name cmake, MSBuild, cl, link -ErrorAction SilentlyContinue) {
 $backup = Join-Path $workspace ('.tools/native-packets-deployment-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $backup | Out-Null
 Copy-Item -LiteralPath $installed -Destination (Join-Path $backup 'worldserver.exe')
-$previousClient = Join-Path $workspace '.tools/native-packets-previous-client/WowClient64.exe'
-if (Test-Path -LiteralPath $previousClient) {
-    Copy-Item -LiteralPath $previousClient -Destination (Join-Path $backup 'WowClient64.exe')
-}
+if (!$PreviousClient) { $PreviousClient = $clientExe }
+Copy-Item -LiteralPath $PreviousClient -Destination (Join-Path $backup 'WowClient64.exe')
 $processes = @(Get-Process -Name WowClient64, worldserver -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -in @($clientExe, $installed) })
 $restartClient = @($processes | Where-Object { $_.Path -eq $clientExe }).Count -gt 0
@@ -34,8 +33,12 @@ if (Test-Path -LiteralPath $archive) {
 }
 try {
     Copy-Item -LiteralPath $staged -Destination $installed -Force
+    Copy-Item -LiteralPath $stagedClient -Destination $clientExe -Force
     if ((Get-FileHash -LiteralPath $installed).Hash -ne (Get-FileHash -LiteralPath $staged).Hash) {
         throw 'Server installation hash mismatch.'
+    }
+    if ((Get-FileHash -LiteralPath $clientExe).Hash -ne (Get-FileHash -LiteralPath $stagedClient).Hash) {
+        throw 'Client installation hash mismatch.'
     }
     $record = @{
         serverCommit = (& git -C $server rev-parse HEAD)
