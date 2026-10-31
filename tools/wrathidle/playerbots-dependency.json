@@ -1,0 +1,7 @@
+{
+  "coreRepository": "https://github.com/mod-playerbots/azerothcore-wotlk.git",
+  "coreRevision": "3f2969ddb0da42b48b4fca050c02b19163ba1e20",
+  "moduleRepository": "https://github.com/mod-playerbots/mod-playerbots.git",
+  "moduleRevision": "e88cc4099e69f35126b28942a412ca702d20453b",
+  "patch": "playerbots-managed.patch"
+}

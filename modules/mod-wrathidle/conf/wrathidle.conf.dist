@@ -1,0 +1,4 @@
+[worldserver]
+# Enable only on a dedicated WrathIdle realm.
+EnablePlayerSettings = 1
+WrathIdle.Enable = 1

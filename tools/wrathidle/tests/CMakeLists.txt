@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.20)
+project(wrathidle_policy_tests LANGUAGES CXX)
+enable_testing()
+add_executable(wrathidle_policy_tests model_tests.cpp)
+target_compile_features(wrathidle_policy_tests PRIVATE cxx_std_20)
+target_include_directories(wrathidle_policy_tests PRIVATE ../../../modules/mod-wrathidle/src)
+add_test(NAME wrathidle_policy COMMAND wrathidle_policy_tests)
+
+set(WRATHIDLE_DETOUR_LIBRARY "" CACHE FILEPATH "Built Detour library for optional installed-map regression checks")
+set(WRATHIDLE_MMAP_DIRECTORY "" CACHE PATH "Installed v20 mmaps directory; game data remains outside the repository")
+if(WRATHIDLE_DETOUR_LIBRARY AND WRATHIDLE_MMAP_DIRECTORY)
+    add_executable(wrathidle_navigation_tests navmesh_tests.cpp)
+    target_compile_features(wrathidle_navigation_tests PRIVATE cxx_std_20)
+    target_include_directories(wrathidle_navigation_tests PRIVATE
+        ../../../modules/mod-wrathidle/src ../../../deps/recastnavigation/Detour/Include)
+    target_link_libraries(wrathidle_navigation_tests PRIVATE "${WRATHIDLE_DETOUR_LIBRARY}")
+    add_test(NAME wrathidle_navigation COMMAND wrathidle_navigation_tests "${WRATHIDLE_MMAP_DIRECTORY}")
+endif()

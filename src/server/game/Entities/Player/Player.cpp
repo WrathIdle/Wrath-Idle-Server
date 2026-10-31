@@ -4932,7 +4932,17 @@ uint32 Player::DurabilityRepairAll(bool cost, float discountMod, bool guildBank)
     return TotalCost;
 }
 
-uint32 Player::DurabilityRepair(uint16 pos, bool cost, float discountMod, bool guildBank)
+bool Player::IsItemInEquipmentSet(ObjectGuid guid) const
+{
+    for (auto const& [index, set] : m_EquipmentSets)
+        if (set.state != EQUIPMENT_SET_DELETED)
+            for (ObjectGuid item : set.Items)
+                if (item == guid)
+                    return true;
+    return false;
+}
+
+uint32 Player::DurabilityRepair(uint16 pos, bool cost, float discountMod, bool guildBank, uint32 maxCost)
 {
     Item* item = GetItemByPos(pos);
 
@@ -4975,6 +4985,10 @@ uint32 Player::DurabilityRepair(uint16 pos, bool cost, float discountMod, bool g
 
             if (costs == 0)                                   //fix for ITEM_QUALITY_ARTIFACT
                 costs = 1;
+
+            // Automation can reserve funds without temporarily changing the player's money.
+            if (costs > maxCost)
+                return TotalCost;
 
             if (guildBank)
             {

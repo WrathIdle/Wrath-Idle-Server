@@ -2082,7 +2082,7 @@ public:
     void DurabilityPointsLoss(Item* item, int32 points);
     void DurabilityPointLossForEquipSlot(EquipmentSlots slot);
     uint32 DurabilityRepairAll(bool cost, float discountMod, bool guildBank);
-    uint32 DurabilityRepair(uint16 pos, bool cost, float discountMod, bool guildBank);
+    uint32 DurabilityRepair(uint16 pos, bool cost, float discountMod, bool guildBank, uint32 maxCost = UINT32_MAX);
 
     void UpdateMirrorTimers();
     void StopMirrorTimers()
@@ -2273,6 +2273,7 @@ public:
     void CastItemCombatSpell(Unit* target, WeaponAttackType attType, uint32 procVictim, uint32 procEx, Item* item, ItemTemplate const* proto);
 
     void SendEquipmentSetList();
+    bool IsItemInEquipmentSet(ObjectGuid guid) const;
     void SetEquipmentSet(uint32 index, EquipmentSet eqset);
     void DeleteEquipmentSet(uint64 setGuid);
 

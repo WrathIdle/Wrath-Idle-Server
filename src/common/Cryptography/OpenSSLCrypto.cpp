@@ -31,9 +31,8 @@ void SetupLibrariesForWindows()
     namespace fs = std::filesystem;
 
     fs::path programLocation{ boost::dll::program_location().remove_filename().string() };
-    fs::path libLegacy{ boost::dll::program_location().remove_filename().string() + "/legacy.dll" };
-
-    ASSERT(fs::exists(libLegacy), "Not found 'legacy.dll'. Please copy library 'legacy.dll' from OpenSSL default dir to '{}'", programLocation.generic_string());
+    // Static OpenSSL builds can register the legacy provider internally. Let
+    // provider loading decide availability instead of requiring an unused DLL.
     OSSL_PROVIDER_set_default_search_path(nullptr, programLocation.generic_string().c_str());
 }
 #endif
@@ -45,6 +44,7 @@ void OpenSSLCrypto::threadsSetup()
 #endif
     LegacyProvider = OSSL_PROVIDER_load(nullptr, "legacy");
     DefaultProvider = OSSL_PROVIDER_load(nullptr, "default");
+    ASSERT(LegacyProvider && DefaultProvider, "OpenSSL default/legacy provider unavailable");
 }
 
 void OpenSSLCrypto::threadsCleanup()

@@ -874,6 +874,11 @@ public:
     }
 
     [[nodiscard]] AreaTriggerTeleportContainer const& GetAllAreaTriggerTeleports() const { return _areaTriggerTeleportStore; }
+    [[nodiscard]] AreaTriggerContainer const& GetAllAreaTriggers() const { return _areaTriggerStore; }
+    [[nodiscard]] std::unordered_map<uint32, uint32> const& GetQuestAreaTriggerRelations() const
+    {
+        return _questAreaTriggerStore;
+    }
     [[nodiscard]] AreaTriggerTeleport const* GetAreaTriggerTeleport(uint32 trigger) const
     {
         AreaTriggerTeleportContainer::const_iterator itr = _areaTriggerTeleportStore.find(trigger);

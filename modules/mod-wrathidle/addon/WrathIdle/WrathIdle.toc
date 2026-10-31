@@ -1,0 +1,8 @@
+## Interface: 30300
+## Title: WrathIdle
+## Notes: Manage your adventurer on a WrathIdle server.
+## Author: WrathIdle
+## Version: 0.1.0
+## SavedVariablesPerCharacter: WrathIdleHistory
+Protocol.lua
+Interface.lua
