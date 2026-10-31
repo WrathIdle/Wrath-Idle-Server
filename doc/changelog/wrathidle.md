@@ -4,6 +4,16 @@
 
 ### 2026-10-31
 
+#### Empty native packet strings
+
+- Fixed the native update writer calling ByteBuffer::append with zero bytes for an empty string.
+  A normal empty class-decision field caused a server assertion after character login.
+  The writer retains the uint16 zero length and omits the empty data append.
+- Wire version 1 and saved profiles remain compatible with the deployed client. The client reader
+  already accepts zero-length strings. The existing update_classstate packet fixture contains this case.
+- Validation is source inspection and the monitored build/deployment. Login, UI refresh and reconnect
+  verification remain maintainer-controlled.
+
 - Added mandatory change documentation and versioning rules to `AGENTS.md` so future work records
   its scope, rationale, compatibility requirements, and validation status alongside the implementation.
   Keep affected documentation and release metadata consistent, preserve upstream version identifiers,
