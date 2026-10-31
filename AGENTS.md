@@ -56,3 +56,30 @@ When a user correction reveals a lesson that generalizes, offer to persist it in
 - Codex may stop, deploy, start, and restart the client and server as needed for deployment without requesting confirmation. Deploy matching versions together when a shared interface changes.
 - The maintainer controls all testing. Prepare test cases and instructions. Run a test only when the maintainer explicitly delegates it. This includes automated tests, smoke checks, login, gameplay, UI, and reconnect testing. Building and installing artifacts, checking deployed hashes, and confirming process startup are deployment operations. Report deployment results and test results separately.
 - Use role-based wording in project-authored instructions, documentation, and test handoffs. Refer to the user as the maintainer.
+
+## Build resource limits
+
+A previous run launched client and server builds concurrently and bypassed the existing
+low-resource server build wrapper. Server projects also enabled multiprocess compilation,
+so the outer parallel-job setting did not bound the number of compiler workers.
+The maintainer reported a complete computer lockup requiring a restart during those builds.
+
+- Never build the client and server concurrently. Run one build at a time across this workspace.
+- Use one MSBuild worker and one compiler worker. Set CMake parallelism to 1, MSBuild /m:1,
+  BuildInParallel=false, CL_MPCount=1, and UseMultiToolTask=false. Explicitly disable
+  MultiProcessorCompilation through the existing tools/wrathidle/LowResourceBuild.targets
+  in the sibling server repository. Apply these limits to client builds as well.
+- Never invoke a direct build command that bypasses those limits. The server's
+  tools/wrathidle/Build-Incremental.ps1 is the starting point for bounded server builds.
+  Verify that the resource-limit targets file is imported before starting compilation.
+- Before each build, check for active compiler, linker and build processes. Wait for any
+  active build to finish. Never start a second build to work around an active-build refusal.
+- Require at least 8 GiB of available physical memory before starting. Run at BelowNormal
+  priority. Monitor available memory during compilation and linking. If it falls below
+  4 GiB, stop only the build process tree started for this task and report the resource limit.
+  Use a monitored launcher that enforces this stop condition before starting a build.
+- Prefer the smallest affected incremental target. Inspect rebuild scope after shared-header
+  changes. If safe resource limits cannot be enforced, report the blocker and leave the build
+  pending for the maintainer.
+- Following a reported lockup or forced restart, do not automatically resume interrupted
+  builds. Finish the requested investigation and safeguards first.
