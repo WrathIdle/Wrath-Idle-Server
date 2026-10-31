@@ -36,6 +36,7 @@ $archive = Join-Path $clientDirectory 'Data/enUS/patch-enUS-W.MPQ'
 if (Test-Path -LiteralPath $archive) {
     Move-Item -LiteralPath $archive -Destination (Join-Path $backup 'patch-enUS-W.MPQ')
 }
+$record = $null
 try {
     Copy-Item -LiteralPath $staged -Destination $installed -Force
     Copy-Item -LiteralPath $stagedClient -Destination $clientExe -Force
@@ -66,10 +67,12 @@ try {
     $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'deployment.json')
     Write-Host "Matching game versions deployed. Record saved under $backup"
 } catch {
-    Get-Process -Name worldserver -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -eq $installed } | Stop-Process
-    Get-Process -Name WowClient64 -ErrorAction SilentlyContinue |
-        Where-Object { $_.Path -eq $clientExe } | Stop-Process
+    $rollbackProcesses = @(Get-Process -Name worldserver, WowClient64 -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -in @($installed, $clientExe) })
+    foreach ($rollbackProcess in $rollbackProcesses) {
+        Stop-Process -Id $rollbackProcess.Id
+        $rollbackProcess.WaitForExit()
+    }
     Copy-Item -LiteralPath (Join-Path $backup 'worldserver.exe') -Destination $installed -Force
     if (Test-Path -LiteralPath (Join-Path $backup 'WowClient64.exe')) {
         Copy-Item -LiteralPath (Join-Path $backup 'WowClient64.exe') -Destination $clientExe -Force

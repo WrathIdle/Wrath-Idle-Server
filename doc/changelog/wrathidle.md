@@ -25,7 +25,7 @@
   Deployment stages and backs up both executables, retires the managed UI archive, verifies
   installed hashes, records source revisions, local modifications, generated build identities and the packet contract
   hash, and restarts the deployed local stack. Deployment records identify installed, ready
-  and rolled-back phases.
+  and rolled-back phases. Rollback waits for deployed processes to exit before restoring files.
 - WoW 3.3.5a/build 12340, upstream core/database compatibility and saved profile schema 3 remain
   the compatibility identifiers. Runtime test execution remains maintainer-controlled.
 - Validation includes source review and whitespace checks. Build and deployment results and
