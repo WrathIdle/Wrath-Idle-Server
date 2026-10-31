@@ -11,8 +11,9 @@
   The writer retains the uint16 zero length and omits the empty data append.
 - Wire version 1 and saved profiles remain compatible with the deployed client. The client reader
   already accepts zero-length strings. The existing update_classstate packet fixture contains this case.
-- Validation is source inspection and the monitored build/deployment. Login, UI refresh and reconnect
-  verification remain maintainer-controlled.
+- Validation. The monitored Release build succeeded with zero warnings and errors. Installed hashes
+  match the deployment record, and worldserver startup was confirmed. The rebuild includes existing
+  local module-PCH and build-diagnostics changes. Login, UI refresh and reconnect remain maintainer-controlled.
 
 - Added mandatory change documentation and versioning rules to `AGENTS.md` so future work records
   its scope, rationale, compatibility requirements, and validation status alongside the implementation.
