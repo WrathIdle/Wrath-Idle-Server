@@ -12,8 +12,10 @@
 - This prevents repeated training attempts at an absent Arena Tournament trainer. Ordinary trainers
   remain eligible. Event spawns become eligible when the core activates them, including after map
   indexes have been cached. No trainer IDs, event IDs or coordinates are overridden in production.
-- Wire version 1 and existing client builds remain compatible. Validation uses source/data inspection,
-  the guarded build, installed hashes and server startup. Gameplay acceptance is maintainer-controlled.
+- Wire version 1 and existing client builds remain compatible. Source and installed data were inspected.
+  The guarded Release build passed with zero warnings/errors, installed hashes were verified, and server
+  startup was confirmed. Existing local PCH/build-diagnostics edits are recorded in the deployment manifest.
+  Trainer gameplay acceptance remains maintainer-controlled.
 
 #### Empty native packet strings
 
