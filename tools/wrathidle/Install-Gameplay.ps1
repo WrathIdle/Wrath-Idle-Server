@@ -14,6 +14,11 @@ foreach ($path in @($clientExe, $stagedClient, $staged, "$clientDirectory/Data")
 if (Get-Process -Name cmake, MSBuild, cl, link -ErrorAction SilentlyContinue) {
     throw 'A build is active. Finish building both artifacts before deploying.'
 }
+$serverWire = Join-Path $server 'modules/mod-wrathidle/src/IdleWire.h'
+$clientWire = Join-Path $workspace 'Wrath-Idle-Client/WoW/Source/Ui/WrathIdleWire.h'
+if ((Get-FileHash -LiteralPath $serverWire).Hash -ne (Get-FileHash -LiteralPath $clientWire).Hash) {
+    throw 'Client and server packet contracts differ. Update both before deploying.'
+}
 $backup = Join-Path $workspace ('.tools/native-packets-deployment-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $backup | Out-Null
 Copy-Item -LiteralPath $installed -Destination (Join-Path $backup 'worldserver.exe')
@@ -43,6 +48,11 @@ try {
     $record = @{
         serverCommit = (& git -C $server rev-parse HEAD)
         clientCommit = (& git -C (Join-Path $workspace 'Wrath-Idle-Client') rev-parse HEAD)
+        serverLocalModifications = @(& git -C $server status --porcelain)
+        clientLocalModifications = @(& git -C (Join-Path $workspace 'Wrath-Idle-Client') status --porcelain)
+        clientBuildIdentity = @(Get-Content -LiteralPath (Join-Path $workspace 'Wrath-Idle-Client/build/x64/generated/WaystoneVersion.h'))
+        serverBuildIdentity = @(Get-Content -LiteralPath (Join-Path $server 'build/revision.h'))
+        packetContractHash = (Get-FileHash -LiteralPath $serverWire).Hash
         serverHash = (Get-FileHash -LiteralPath $installed).Hash
         clientHash = (Get-FileHash -LiteralPath $clientExe).Hash
         stoppedProcessIds = @($processes.Id)

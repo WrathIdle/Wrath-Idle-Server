@@ -23,7 +23,8 @@
 - Added monitored, sequential builds with a workspace lock, below-normal priority, at most half
   the logical processors, five default compiler workers and a 4 GiB memory stop threshold.
   Deployment stages and backs up both executables, retires the managed UI archive, verifies
-  installed hashes, records source revisions and restarts the deployed local stack.
+  installed hashes, records source revisions, local modifications, generated build identities and the packet contract
+  hash, and restarts the deployed local stack.
 - WoW 3.3.5a/build 12340, upstream core/database compatibility and saved profile schema 3 remain
   the compatibility identifiers. Runtime test execution remains maintainer-controlled.
 - Validation includes source review and whitespace checks. Build and deployment results and
