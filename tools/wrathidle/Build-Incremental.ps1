@@ -19,6 +19,10 @@ $build = $null
 $parentProcess = Get-Process -Id $PID
 $previousPriority = $parentProcess.PriorityClass
 $previousAffinity = $parentProcess.ProcessorAffinity
+function Stop-CurrentBuild {
+    & taskkill.exe /PID $build.Id /T /F | Out-Null
+    $build.WaitForExit()
+}
 try {
     $lock = [IO.File]::Open((Join-Path $workspace '.tools/build.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
     if (Get-Process -Name MSBuild, cl, cmake, link -ErrorAction SilentlyContinue) {
@@ -41,7 +45,7 @@ try {
     $errorLog = Join-Path $workspace ".tools/$($Project.ToLower())-bounded-build.error.log"
     $arguments = @('--build', "`"$buildDirectory`"", '--config', 'Release', '--target', $Target,
         '--parallel', '1', '--', '/m:1', '/nr:false', '/p:BuildInParallel=false',
-        "/p:CL_MPCount=$workers", '/p:UseMultiToolTask=false', "`"/p:ForceImportBeforeCppTargets=$limits`"")
+        "/p:CL_MPCount=$workers", '/p:UseMultiToolTask=true', "/p:MultiProcMaxCount=$workers", '/p:EnforceProcessCountAcrossBuilds=true', "`"/p:ForceImportBeforeCppTargets=$limits`"")
     $stage = Join-Path $workspace '.tools/gameplay-stage'
     New-Item -ItemType Directory -Path $stage -Force | Out-Null
     if ($Project -eq 'Server') {
@@ -54,12 +58,12 @@ try {
     $build.PriorityClass = 'BelowNormal'
     while (!$build.WaitForExit(1000)) {
         if ((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory -lt 4GB / 1KB) {
-            $build.Kill($true)
+            Stop-CurrentBuild
             $build.WaitForExit()
             throw 'Build stopped because available physical memory fell below 4 GiB.'
         }
         if (@(Get-Process -Name cl -ErrorAction SilentlyContinue).Count -gt ($workers + 1)) {
-            $build.Kill($true)
+            Stop-CurrentBuild
             $build.WaitForExit()
             throw 'Build stopped because the configured compiler worker limit was exceeded.'
         }
@@ -68,7 +72,7 @@ try {
     if ($build.ExitCode -ne 0) { throw "Build failed ($($build.ExitCode)). Read $log and $errorLog." }
     Write-Host "Build complete. Output saved to $log"
 } finally {
-    if ($build -and !$build.HasExited) { $build.Kill($true); $build.WaitForExit() }
+    if ($build -and !$build.HasExited) { Stop-CurrentBuild; $build.WaitForExit() }
     if ($lock) { $lock.Dispose() }
     $parentProcess.PriorityClass = $previousPriority
     $parentProcess.ProcessorAffinity = $previousAffinity

@@ -30,3 +30,6 @@
   the compatibility identifiers. Runtime test execution remains maintainer-controlled.
 - Validation includes source review and whitespace checks. Build and deployment results and
   matching client/server revisions are recorded in the deployment handoff.
+
+- Large-module builds now use bounded per-file compiler processes so compiler memory is released
+  between files. Process-tree shutdown uses the Windows taskkill tool scoped to the launched build PID.

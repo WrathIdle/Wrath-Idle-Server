@@ -1,7 +1,9 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <BuildInParallel>false</BuildInParallel>
-    <UseMultiToolTask>false</UseMultiToolTask>
+    <UseMultiToolTask>true</UseMultiToolTask>
+    <EnforceProcessCountAcrossBuilds>true</EnforceProcessCountAcrossBuilds>
+    <MultiProcMaxCount Condition="'$(MultiProcMaxCount)' == ''">1</MultiProcMaxCount>
     <CL_MPCount Condition="'$(CL_MPCount)' == ''">1</CL_MPCount>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(WrathIdleStagedExecutable)' != '' and '$(TargetName)' == 'worldserver'">
@@ -21,9 +23,8 @@
   <Target Name="WrathIdleLimitCompilerWorkers" BeforeTargets="SelectClCompile;ClCompile">
     <ItemGroup>
       <ClCompile>
-        <MultiProcessorCompilation Condition="'$(CL_MPCount)' &gt; '1'">true</MultiProcessorCompilation>
-        <MultiProcessorCompilation Condition="'$(CL_MPCount)' == '1'">false</MultiProcessorCompilation>
-        <ProcessorNumber>$(CL_MPCount)</ProcessorNumber>
+        <MultiProcessorCompilation>false</MultiProcessorCompilation>
+        <ProcessorNumber>1</ProcessorNumber>
       </ClCompile>
     </ItemGroup>
   </Target>

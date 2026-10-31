@@ -94,7 +94,10 @@ The maintainer reported a complete computer lockup requiring a restart during th
   and bound compiler workers explicitly. Limit the build process tree's processor affinity
   to at most half the logical processors, and lower the worker count when memory requires it.
   Use the monitored tools/wrathidle/Build-Incremental.ps1 in the server repository for either
-  project. Import its LowResourceBuild.targets and prohibit unbounded /MP compilation.
+  project. Import its LowResourceBuild.targets and prohibit /MP compiler-process reuse.
+  Use MSBuild's per-file MultiToolTask mode with an explicit MultiProcMaxCount, enforced
+  across builds, so each completed file releases its compiler memory. Unbounded MultiToolTask
+  execution is prohibited.
 - Never invoke a direct build command that bypasses those limits. The server's
   tools/wrathidle/Build-Incremental.ps1 is the starting point for bounded server builds.
   Verify that the resource-limit targets file is imported before starting compilation.
