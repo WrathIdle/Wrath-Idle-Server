@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [ValidateSet('Server', 'Client')][string]$Project = 'Server',
-    [string]$Target = ''
+    [string]$Target = '',
+    [ValidateRange(1, 63)][int]$CompilerWorkers = 5
 )
 $ErrorActionPreference = 'Stop'
 $server = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -30,7 +31,7 @@ try {
     $processorLimit = [math]::Max(1, [math]::Min(63, [math]::Floor($logicalProcessors / 2)))
     $freeGiB = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB
     $memoryWorkers = [math]::Max(1, [math]::Floor(($freeGiB - 6) / 2))
-    $workers = [int][math]::Min($processorLimit, $memoryWorkers)
+    $workers = [int][math]::Min($CompilerWorkers, [math]::Min($processorLimit, $memoryWorkers))
     # Child processes inherit this affinity, including compiler and linker threads.
     $parentProcess.ProcessorAffinity = [IntPtr]([long][math]::Pow(2, $processorLimit) - 1)
     $parentProcess.PriorityClass = 'BelowNormal'
