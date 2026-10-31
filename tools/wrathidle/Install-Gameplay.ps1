@@ -46,6 +46,7 @@ try {
         throw 'Client installation hash mismatch.'
     }
     $record = @{
+        phase = 'installed'
         serverCommit = (& git -C $server rev-parse HEAD)
         clientCommit = (& git -C (Join-Path $workspace 'Wrath-Idle-Client') rev-parse HEAD)
         serverLocalModifications = @(& git -C $server status --porcelain)
@@ -60,6 +61,9 @@ try {
     $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'deployment.json')
     & (Join-Path $PSScriptRoot 'Start-LocalPlaytest.ps1') -Workspace $workspace -ServerOnly
     if ($restartClient) { Start-Process -FilePath $clientExe -WorkingDirectory $clientDirectory -WindowStyle Hidden }
+    $record.phase = 'ready'
+    $record.clientRestarted = $restartClient
+    $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'deployment.json')
     Write-Host "Matching game versions deployed. Record saved under $backup"
 } catch {
     Get-Process -Name worldserver -ErrorAction SilentlyContinue |
@@ -72,6 +76,10 @@ try {
     }
     if (Test-Path -LiteralPath (Join-Path $backup 'patch-enUS-W.MPQ')) {
         Move-Item -LiteralPath (Join-Path $backup 'patch-enUS-W.MPQ') -Destination $archive
+    }
+    if ($record) {
+        $record.phase = 'rolled-back'
+        $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'deployment.json')
     }
     throw
 }
