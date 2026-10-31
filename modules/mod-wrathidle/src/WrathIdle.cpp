@@ -165,7 +165,8 @@ void Send(Player* player, std::string_view kind, std::vector<uint32> const& valu
     {
         std::string bounded = text.substr(0, WrathIdleWire::MaxString);
         packet << uint16(bounded.size());
-        packet.append(bounded.data(), bounded.size());
+        if (!bounded.empty())
+            packet.append(bounded.data(), bounded.size());
     }
     player->SendDirectMessage(&packet);
 }
