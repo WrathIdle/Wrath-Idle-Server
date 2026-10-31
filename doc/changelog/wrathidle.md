@@ -4,6 +4,17 @@
 
 ### 2026-10-31
 
+#### Event-aware service discovery
+
+- Fixed friendly NPC discovery selecting database-only spawns from inactive game events.
+  Trainer, service, destination and quest-giver selection now consult the core grid-spawn index
+  on every lookup, using the current map difficulty and existing phase/faction checks.
+- This prevents repeated training attempts at an absent Arena Tournament trainer. Ordinary trainers
+  remain eligible. Event spawns become eligible when the core activates them, including after map
+  indexes have been cached. No trainer IDs, event IDs or coordinates are overridden in production.
+- Wire version 1 and existing client builds remain compatible. Validation uses source/data inspection,
+  the guarded build, installed hashes and server startup. Gameplay acceptance is maintainer-controlled.
+
 #### Empty native packet strings
 
 - Fixed the native update writer calling ByteBuffer::append with zero bytes for an empty string.
