@@ -57,6 +57,31 @@ When a user correction reveals a lesson that generalizes, offer to persist it in
 - The maintainer controls all testing. Prepare test cases and instructions. Run a test only when the maintainer explicitly delegates it. This includes automated tests, smoke checks, login, gameplay, UI, and reconnect testing. Building and installing artifacts, checking deployed hashes, and confirming process startup are deployment operations. Report deployment results and test results separately.
 - Use role-based wording in project-authored instructions, documentation, and test handoffs. Refer to the user as the maintainer.
 
+## Change documentation and versioning
+
+- Document every change in the same task, including fixes, features, refactors, configuration,
+  deployment tooling, and documentation changes. Update the relevant tracked changelog or change
+  record with the date, what changed, why, affected components, and any compatibility or migration steps.
+  Use `doc/changelog/wrathidle.md` for WrathIdle server changes; a chat handoff alone is not sufficient.
+- Keep affected README files, configuration examples, protocol documentation, and maintainer
+  instructions consistent with the implementation. Record validation performed, results, and pending
+  maintainer testing; distinguish source changes, successful builds, deployment, and live acceptance.
+- Inspect the affected component's authoritative version source and release convention before editing.
+  Use its existing scheme; where Semantic Versioning applies, increment major for breaking changes,
+  minor for compatible features, and patch for compatible fixes. Record unreleased work as unreleased.
+  Documentation-only changes require a change record but do not require a runtime version bump.
+- Keep release metadata, displayed versions, packages, and release notes consistent. Preserve generated
+  version sources: the client's Waystone build number and commit are generated from Git by
+  `cmake/GenerateWaystoneVersion.cmake`; do not hand-edit generated headers. Identify uncommitted changes
+  explicitly rather than presenting a commit-derived version as an exact identifier for modified code.
+- Preserve WoW compatibility identifiers, including 3.3.5a/build 12340, and upstream core/database
+  versions unless the task explicitly changes that compatibility. They are not WrathIdle release counters.
+- When shared contracts change, update the applicable protocol/schema version and compatibility handling,
+  document upgrade requirements, and identify matching client/server revisions. For deployments, record
+  the source revisions, local modifications, artifact versions, and verified installed hashes.
+- Before declaring completion, check that the change record, affected documentation, and version metadata
+  agree with the delivered scope. State the version/revision and validation status in the handoff.
+
 ## Build resource limits
 
 A previous run launched client and server builds concurrently and bypassed the existing
