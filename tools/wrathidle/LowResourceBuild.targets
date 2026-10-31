@@ -6,6 +6,10 @@
     <MultiProcMaxCount Condition="'$(MultiProcMaxCount)' == ''">1</MultiProcMaxCount>
     <CL_MPCount Condition="'$(CL_MPCount)' == ''">1</CL_MPCount>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(WrathIdleStagedExecutable)' != '' and '$(TargetName)' == 'worldserver'">
+    <OutDir>$([System.IO.Path]::GetDirectoryName('$(WrathIdleStagedExecutable)'))\</OutDir>
+    <TargetPath>$(WrathIdleStagedExecutable)</TargetPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(WrathIdleStagedExecutable)' != '' and '$(TargetName)' == 'worldserver'">
     <Link>
       <OutputFile>$(WrathIdleStagedExecutable)</OutputFile>
@@ -13,6 +17,10 @@
       <MapFileName>$(WrathIdleStagedExecutable).map</MapFileName>
     </Link>
   </ItemDefinitionGroup>
+  <PropertyGroup Condition="'$(WrathIdleStagedClient)' != '' and '$(TargetName)' == 'WowClient64'">
+    <OutDir>$([System.IO.Path]::GetDirectoryName('$(WrathIdleStagedClient)'))\</OutDir>
+    <TargetPath>$(WrathIdleStagedClient)</TargetPath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(WrathIdleStagedClient)' != '' and '$(TargetName)' == 'WowClient64'">
     <Link>
       <OutputFile>$(WrathIdleStagedClient)</OutputFile>

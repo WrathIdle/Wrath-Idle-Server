@@ -33,3 +33,4 @@
 
 - Large-module builds now use bounded per-file compiler processes so compiler memory is released
   between files. Process-tree shutdown uses the Windows taskkill tool scoped to the launched build PID.
+- Aligned staged executable output directories with MSBuild target metadata for consistent incremental linking.
